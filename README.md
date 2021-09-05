@@ -12,7 +12,6 @@ import
 ```
 
 ```go
-// example:
 
 	//////////////	/////////////////	
 	// chk_continue_fn is invoked before each cycle 
@@ -27,6 +26,10 @@ import
 	chk_continue_fn func(interface{}) bool,
 	afclose_fn func(interface{})) (string, error)
 
+```
+
+```go
+// example:
 
 	/// use case 1  job with context ////////////
 	type mycontext struct {
