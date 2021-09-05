@@ -15,9 +15,31 @@ go get github.com/daqnext/BGJOB_GO
 		"github.com/daqnext/BGJOB_GO/bgjob"
 	)
 
+	//////////////	/////////////////	
+	//  chk_continue_fn is invoked before each cycle 
+	// 	process_fn [the main function ] will be called if chk_continue_fn return true
+	// 	afclose_fn will be called if chk_continue_fn return false
+
+	func StartJob(
+	jobname string,
+	interval int64,
+	context interface{},
+	process_fn func(interface{}),
+	chk_continue_fn func(interface{}) bool,
+	afclose_fn func(interface{})) (string, error)
+
+
+	// get the job with job id 
+	bgjob.GetGBJob(jid)
+
+	// get the log of the job 
+	bgjob.GetGBJob(jid).Info.GetContentAsString()
+
+
+	/// use case 1  job with context ////////////
 	type mycontext struct {
 			Counter int
-		}
+	}
 
 	bgjob.StartJob("myjob1", 2, &mycontext{Counter: 0},
 		func(c interface{}) {
@@ -35,6 +57,7 @@ go get github.com/daqnext/BGJOB_GO
 			//bgjob.CloseAndDeleteAllJobs()
 		})
 
+	////// use case 2 ////////////
 	var jid string
 	jid, _ = bgjob.StartJob("myjob2", 5, nil,
 		func(c interface{}) {
@@ -45,5 +68,5 @@ go get github.com/daqnext/BGJOB_GO
 		}, func(c interface{}) {
 			//fmt.Println("afterclose myjob2")
 		})
-
+ 
 ```
