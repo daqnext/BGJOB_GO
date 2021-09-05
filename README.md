@@ -1,24 +1,23 @@
 # BGJOB_GO
 background job util with go version
 
-```
+```go
 //install package:
 go get github.com/daqnext/BGJOB_GO
+
+import 
+(
+	"github.com/daqnext/BGJOB_GO/bgjob"
+)
 ```
 
-```
+```go
 // example:
 
- 
-	import 
-	(
-		"github.com/daqnext/BGJOB_GO/bgjob"
-	)
-
 	//////////////	/////////////////	
-	//  chk_continue_fn is invoked before each cycle 
-	// 	process_fn [the main function ] will be called if chk_continue_fn return true
-	// 	afclose_fn will be called if chk_continue_fn return false
+	// chk_continue_fn is invoked before each cycle 
+	// process_fn [the main function ] will be called if chk_continue_fn return true
+	// afclose_fn will be called if chk_continue_fn return false
 
 	func StartJob(
 	jobname string,
