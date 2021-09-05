@@ -25,16 +25,19 @@ func main() {
 			return true
 		}, func(c interface{}) {
 			fmt.Println("afterclose")
-			bgjob.CloseAndDeleteAllJobs()
+			fmt.Println("will close all jobs")
+			//bgjob.CloseAndDeleteAllJobs()
 		})
 
-	bgjob.StartJob("myjob2", 2, nil,
+	var jid string
+	jid, _ = bgjob.StartJob("myjob2", 5, nil,
 		func(c interface{}) {
-			fmt.Println("proccessing myjob2")
+			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
 		}, func(c interface{}) bool {
+			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
 			return true
 		}, func(c interface{}) {
-			fmt.Println("afterclose myjob2")
+			//fmt.Println("afterclose myjob2")
 		})
 
 	time.Sleep(400 * time.Second)

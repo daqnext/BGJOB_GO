@@ -6,7 +6,6 @@ background job util with go version
 go get github.com/daqnext/BGJOB_GO
 ```
 
-
 ```
 // example:
 
@@ -17,8 +16,8 @@ go get github.com/daqnext/BGJOB_GO
 	)
 
 	type mycontext struct {
-		Counter int
-	}
+			Counter int
+		}
 
 	bgjob.StartJob("myjob1", 2, &mycontext{Counter: 0},
 		func(c interface{}) {
@@ -31,15 +30,20 @@ go get github.com/daqnext/BGJOB_GO
 			}
 			return true
 		}, func(c interface{}) {
-			fmt.Println("afterclose myjob1")
+			fmt.Println("afterclose")
+			fmt.Println("will close all jobs")
+			//bgjob.CloseAndDeleteAllJobs()
 		})
 
-	bgjob.StartJob("myjob2", 2, nil,
+	var jid string
+	jid, _ = bgjob.StartJob("myjob2", 5, nil,
 		func(c interface{}) {
-			fmt.Println("proccessing myjob2")
+			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
 		}, func(c interface{}) bool {
+			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
 			return true
 		}, func(c interface{}) {
-			fmt.Println("afterclose myjob2")
+			//fmt.Println("afterclose myjob2")
 		})
+
 ```

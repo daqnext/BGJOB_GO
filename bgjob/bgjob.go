@@ -29,7 +29,7 @@ type Job struct {
 	LastRuntime int64
 	Info        *fj.FastJson
 	Status      string
-	Cycles      uint64
+	Cycles      int64
 
 	Context       interface{}
 	ProcessFn     func(interface{})
@@ -61,15 +61,24 @@ func StartJob(
 		}
 	}
 
+	createTime := time.Now().Unix()
+
 	fjpointre, _ := fj.NewFromString("{}")
+	fjpointre.SetString(jobname, "JobName")
+	fjpointre.SetString(STATUS_WAITING, "Status")
+	fjpointre.SetInt(0, "LastRuntime")
+	fjpointre.SetInt(createTime, "CreateTime")
+	fjpointre.SetInt(0, "Cycles")
+	fjpointre.SetInt(interval, "Interval")
+
 	singleAllJobs[jobid] = &Job{
 		JobName:       jobname,
 		LastRuntime:   0,
-		CreateTime:    time.Now().Unix(),
+		CreateTime:    createTime,
 		Status:        STATUS_WAITING,
 		Cycles:        0,
 		Interval:      interval,
-		Infojson:      fjpointre,
+		Info:          fjpointre,
 		Context:       context,
 		ProcessFn:     process_fn,
 		ChkContinueFn: chk_continue_fn,
@@ -80,7 +89,10 @@ func StartJob(
 
 		jobh := singleAllJobs[jobid_]
 		for {
+
 			if !jobh.ChkContinueFn(jobh.Context) || jobh.Status == STATUS_CLOSING {
+				jobh.Status = STATUS_CLOSING
+				jobh.Info.SetString(STATUS_CLOSING, "Status")
 				jobh.AfCloseFn(jobh.Context)
 				delete(singleAllJobs, jobid_)
 				return
@@ -90,12 +102,17 @@ func StartJob(
 			toSleepSecs := jobh.LastRuntime + jobh.Interval - nowUnixTime
 			if toSleepSecs <= 0 {
 				jobh.LastRuntime = nowUnixTime
+				jobh.Info.SetInt(jobh.LastRuntime, "LastRuntime")
 				jobh.Status = STATUS_RUNNING
+				jobh.Info.SetString(STATUS_RUNNING, "Status")
 				jobh.Cycles++
+				jobh.Info.SetInt(jobh.Cycles, "Cycles")
 				// run
 				jobh.ProcessFn(jobh.Context)
 				//end
 				jobh.Status = STATUS_WAITING
+				jobh.Info.SetString(STATUS_WAITING, "Status")
+
 			} else {
 				time.Sleep(time.Duration(toSleepSecs) * time.Second)
 			}
