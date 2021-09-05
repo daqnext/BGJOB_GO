@@ -1,8 +1,14 @@
-# BGJOB_GO
-background job util with go version
+package main
 
+import (
+	"fmt"
+	"time"
 
-```
+	"github.com/daqnext/BGJOB_GO/bgjob"
+)
+
+func main() {
+
 	type mycontext struct {
 		Counter int
 	}
@@ -18,7 +24,8 @@ background job util with go version
 			}
 			return true
 		}, func(c interface{}) {
-			fmt.Println("afterclose myjob1")
+			fmt.Println("afterclose")
+			bgjob.CloseAndDeleteAllJobs()
 		})
 
 	bgjob.StartJob("myjob2", 2, nil,
@@ -29,4 +36,6 @@ background job util with go version
 		}, func(c interface{}) {
 			fmt.Println("afterclose myjob2")
 		})
-```
+
+	time.Sleep(400 * time.Second)
+}
