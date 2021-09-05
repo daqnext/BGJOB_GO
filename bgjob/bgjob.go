@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math/rand"
 	"time"
+
+	fj "github.com/daqnext/fastjson"
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
@@ -25,7 +27,7 @@ type Job struct {
 	Interval    int64
 	CreateTime  int64
 	LastRuntime int64
-	Infojson    string
+	Info        *fj.FastJson
 	Status      string
 	Cycles      uint64
 
@@ -59,6 +61,7 @@ func StartJob(
 		}
 	}
 
+	fjpointre, _ := fj.NewFromString("{}")
 	singleAllJobs[jobid] = &Job{
 		JobName:       jobname,
 		LastRuntime:   0,
@@ -66,7 +69,7 @@ func StartJob(
 		Status:        STATUS_WAITING,
 		Cycles:        0,
 		Interval:      interval,
-		Infojson:      "{}",
+		Infojson:      fjpointre,
 		Context:       context,
 		ProcessFn:     process_fn,
 		ChkContinueFn: chk_continue_fn,

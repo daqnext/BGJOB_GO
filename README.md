@@ -10,6 +10,12 @@ go get github.com/daqnext/BGJOB_GO
 ```
 // example:
 
+ 
+	import 
+	(
+		"github.com/daqnext/BGJOB_GO/bgjob"
+	)
+
 	type mycontext struct {
 		Counter int
 	}

@@ -1,0 +1,4 @@
+github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
+github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
+github.com/daqnext/fastjson v0.1.3 h1:4zL93vRnjpoY7a/e7sispGTXBKRRCGXrmkdNsI1klz0=
+github.com/daqnext/fastjson v0.1.3/go.mod h1:2gnlUwm5m3XM7wZBv2oLbK7tFCUjWGSf8C1Wt+Y66uk=
