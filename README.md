@@ -1,8 +1,15 @@
 # BGJOB_GO
 background job util with go version
 
+```
+//install package:
+go get github.com/daqnext/BGJOB_GO
+```
+
 
 ```
+// example:
+
 	type mycontext struct {
 		Counter int
 	}
