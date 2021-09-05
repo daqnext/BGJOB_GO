@@ -28,13 +28,6 @@ import
 	afclose_fn func(interface{})) (string, error)
 
 
-	// get the job with job id 
-	bgjob.GetGBJob(jid)
-
-	// get the log of the job 
-	bgjob.GetGBJob(jid).Info.GetContentAsString()
-
-
 	/// use case 1  job with context ////////////
 	type mycontext struct {
 			Counter int
@@ -67,5 +60,14 @@ import
 		}, func(c interface{}) {
 			//fmt.Println("afterclose myjob2")
 		})
+
+	// get the job with job id 
+	bgjob.GetGBJob(jid)
+
+	// get the log of the job 
+	bgjob.GetGBJob(jid).Info.GetContentAsString()
+
+
+	//time.Sleep(400 * time.Second)
  
 ```
