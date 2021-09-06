@@ -52,12 +52,9 @@ import
 			fmt.Println("will close all jobs")
 	})
 
-	bgmh.StartJob("myjob2", 2, &mycontext{Counter: 0},
-		func(c interface{}, fjh *fj.FastJson) {
-		}, func(c interface{}, fjh *fj.FastJson) bool {
-			return true
-		}, func(c interface{}, fjh *fj.FastJson) {
-	})
+	bgmh.StartJob("myjob2", 2, nil, func(c interface{}, fjh *fj.FastJson) {
+		fmt.Println("proccessing myjob2")
+	}, nil, nil)
 
 	fmt.Println("///////////////////////")
 	fmt.Println(bgmh.GetAllJobsInfo())
