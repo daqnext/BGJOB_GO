@@ -46,9 +46,16 @@ func New() *JobManager {
 	return &JobManager{AllJobs: make(map[string]*Job)}
 }
 
-//var singleAllJobs map[string]*Job = make(map[string]*Job) //string is a hashtag
-
 func (jm *JobManager) StartJob(
+	jobname string,
+	interval int64,
+	process_fn func(*fj.FastJson)) (string, error) {
+	return jm.StartJobWithContext(jobname, interval, nil, func(i interface{}, fjh *fj.FastJson) {
+		process_fn(fjh)
+	}, nil, nil)
+}
+
+func (jm *JobManager) StartJobWithContext(
 	jobname string,
 	interval int64,
 	context interface{},

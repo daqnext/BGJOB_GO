@@ -16,7 +16,7 @@ func main() {
 		Counter int
 	}
 
-	bgmh.StartJob("myjob1", 2, &mycontext{Counter: 0},
+	bgmh.StartJobWithContext("myjob1", 2, &mycontext{Counter: 0},
 		func(c interface{}, fjh *fj.FastJson) {
 			fmt.Println("proccessing")
 			c.(*mycontext).Counter++
@@ -30,12 +30,12 @@ func main() {
 			return true
 		}, func(c interface{}, fjh *fj.FastJson) {
 			fmt.Println("afterclose")
-			fmt.Println("will close all jobs")
 		})
 
-	bgmh.StartJob("myjob2", 2, nil, func(c interface{}, fjh *fj.FastJson) {
+	bgmh.StartJob("myjob2", 2, func(fjh *fj.FastJson) {
+		fjh.SetBoolean(true, "job2started")
 		fmt.Println("proccessing myjob2")
-	}, nil, nil)
+	})
 
 	fmt.Println("///////////////////////")
 	fmt.Println(bgmh.GetAllJobsInfo())
