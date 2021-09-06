@@ -5,40 +5,44 @@ import (
 	"time"
 
 	"github.com/daqnext/BGJOB_GO/bgjob"
+	fj "github.com/daqnext/fastjson"
 )
 
 func main() {
+
+	bgmh := bgjob.New()
 
 	type mycontext struct {
 		Counter int
 	}
 
-	bgjob.StartJob("myjob1", 2, &mycontext{Counter: 0},
-		func(c interface{}) {
+	bgmh.StartJob("myjob1", 2, &mycontext{Counter: 0},
+		func(c interface{}, fjh *fj.FastJson) {
 			fmt.Println("proccessing")
 			c.(*mycontext).Counter++
-		}, func(c interface{}) bool {
-			fmt.Println("checking:", c.(*mycontext).Counter)
+			fjh.SetInt(int64(c.(*mycontext).Counter), "Counter")
+
+		}, func(c interface{}, fjh *fj.FastJson) bool {
+			fmt.Println(fjh.GetContentAsString())
 			if c.(*mycontext).Counter == 5 {
 				return false
 			}
 			return true
-		}, func(c interface{}) {
+		}, func(c interface{}, fjh *fj.FastJson) {
 			fmt.Println("afterclose")
 			fmt.Println("will close all jobs")
-			//bgjob.CloseAndDeleteAllJobs()
 		})
 
-	var jid string
-	jid, _ = bgjob.StartJob("myjob2", 5, nil,
-		func(c interface{}) {
-			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
-		}, func(c interface{}) bool {
-			fmt.Println(bgjob.GetGBJob(jid).Info.GetContentAsString())
+	bgmh.StartJob("myjob2", 2, &mycontext{Counter: 0},
+		func(c interface{}, fjh *fj.FastJson) {
+		}, func(c interface{}, fjh *fj.FastJson) bool {
 			return true
-		}, func(c interface{}) {
-			//fmt.Println("afterclose myjob2")
+		}, func(c interface{}, fjh *fj.FastJson) {
 		})
+
+	fmt.Println("///////////////////////")
+	fmt.Println(bgmh.GetAllJobsInfo())
+	fmt.Println("///////////////////////")
 
 	time.Sleep(400 * time.Second)
 }

@@ -3,6 +3,7 @@ package bgjob
 import (
 	"errors"
 	"math/rand"
+	"strings"
 	"time"
 
 	fj "github.com/daqnext/fastjson"
@@ -32,20 +33,28 @@ type Job struct {
 	Cycles      int64
 
 	Context       interface{}
-	ProcessFn     func(interface{})
-	ChkContinueFn func(interface{}) bool
-	AfCloseFn     func(interface{})
+	ProcessFn     func(interface{}, *fj.FastJson)
+	ChkContinueFn func(interface{}, *fj.FastJson) bool
+	AfCloseFn     func(interface{}, *fj.FastJson)
 }
 
-var singleAllJobs map[string]*Job = make(map[string]*Job) //string is a hashtag
+type JobManager struct {
+	AllJobs map[string]*Job
+}
 
-func StartJob(
+func New() *JobManager {
+	return &JobManager{AllJobs: make(map[string]*Job)}
+}
+
+//var singleAllJobs map[string]*Job = make(map[string]*Job) //string is a hashtag
+
+func (jm *JobManager) StartJob(
 	jobname string,
 	interval int64,
 	context interface{},
-	process_fn func(interface{}),
-	chk_continue_fn func(interface{}) bool,
-	afclose_fn func(interface{})) (string, error) {
+	process_fn func(interface{}, *fj.FastJson),
+	chk_continue_fn func(interface{}, *fj.FastJson) bool,
+	afclose_fn func(interface{}, *fj.FastJson)) (string, error) {
 
 	if interval < 1 {
 		return "", errors.New("interval at least 1 second")
@@ -55,7 +64,7 @@ func StartJob(
 	jobid := ""
 	for {
 		jobid = randJobId()
-		_, ok := singleAllJobs[jobid]
+		_, ok := jm.AllJobs[jobid]
 		if !ok {
 			break
 		}
@@ -71,7 +80,7 @@ func StartJob(
 	fjpointre.SetInt(0, "Cycles")
 	fjpointre.SetInt(interval, "Interval")
 
-	singleAllJobs[jobid] = &Job{
+	jm.AllJobs[jobid] = &Job{
 		JobName:       jobname,
 		LastRuntime:   0,
 		CreateTime:    createTime,
@@ -87,14 +96,14 @@ func StartJob(
 
 	go func(jobid_ string) {
 
-		jobh := singleAllJobs[jobid_]
+		jobh := jm.AllJobs[jobid_]
 		for {
 
-			if !jobh.ChkContinueFn(jobh.Context) || jobh.Status == STATUS_CLOSING {
+			if !jobh.ChkContinueFn(jobh.Context, jobh.Info) || jobh.Status == STATUS_CLOSING {
 				jobh.Status = STATUS_CLOSING
 				jobh.Info.SetString(STATUS_CLOSING, "Status")
-				jobh.AfCloseFn(jobh.Context)
-				delete(singleAllJobs, jobid_)
+				jobh.AfCloseFn(jobh.Context, jobh.Info)
+				delete(jm.AllJobs, jobid_)
 				return
 			}
 
@@ -108,7 +117,7 @@ func StartJob(
 				jobh.Cycles++
 				jobh.Info.SetInt(jobh.Cycles, "Cycles")
 				// run
-				jobh.ProcessFn(jobh.Context)
+				jobh.ProcessFn(jobh.Context, jobh.Info)
 				//end
 				jobh.Status = STATUS_WAITING
 				jobh.Info.SetString(STATUS_WAITING, "Status")
@@ -124,8 +133,8 @@ func StartJob(
 }
 
 //return nil if not exist
-func GetGBJob(jobid string) *Job {
-	value, ok := singleAllJobs[jobid]
+func (jm *JobManager) GetGBJob(jobid string) *Job {
+	value, ok := jm.AllJobs[jobid]
 	if ok {
 		return value
 	} else {
@@ -133,12 +142,22 @@ func GetGBJob(jobid string) *Job {
 	}
 }
 
-func CloseAndDeleteJob(jobid string) {
-	singleAllJobs[jobid].Status = STATUS_CLOSING
+func (jm *JobManager) CloseAndDeleteJob(jobid string) {
+	jm.AllJobs[jobid].Status = STATUS_CLOSING
 }
 
-func CloseAndDeleteAllJobs() {
-	for jobid := range singleAllJobs {
-		singleAllJobs[jobid].Status = STATUS_CLOSING
+func (jm *JobManager) CloseAndDeleteAllJobs() {
+	for jobid := range jm.AllJobs {
+		jm.AllJobs[jobid].Status = STATUS_CLOSING
 	}
+}
+
+func (jm *JobManager) GetAllJobsInfo() string {
+	result := "["
+	for jobid := range jm.AllJobs {
+		result = result + jm.AllJobs[jobid].Info.GetContentAsString()
+		result = result + ","
+	}
+	result = strings.Trim(result, ",") + "]"
+	return result
 }
