@@ -99,10 +99,15 @@ func (jm *JobManager) StartJob(
 		jobh := jm.AllJobs[jobid_]
 		for {
 
-			if !jobh.ChkContinueFn(jobh.Context, jobh.Info) || jobh.Status == STATUS_CLOSING {
+			if ((jobh.ChkContinueFn != nil) && (!jobh.ChkContinueFn(jobh.Context, jobh.Info))) ||
+				(jobh.Status == STATUS_CLOSING) {
+
 				jobh.Status = STATUS_CLOSING
 				jobh.Info.SetString(STATUS_CLOSING, "Status")
-				jobh.AfCloseFn(jobh.Context, jobh.Info)
+
+				if jobh.AfCloseFn != nil {
+					jobh.AfCloseFn(jobh.Context, jobh.Info)
+				}
 				delete(jm.AllJobs, jobid_)
 				return
 			}
