@@ -51,7 +51,7 @@ type Job struct {
 	afCloseFn     func(interface{}, *fj.FastJson)
 }
 
-func (jb *Job) recordPanicStack(panicstr string, stack string) {
+func (jb *Job) recordPanicStack(jm *JobManager, panicstr string, stack string) {
 
 	errors := []string{panicstr}
 	errstr := panicstr
@@ -76,15 +76,24 @@ func (jb *Job) recordPanicStack(panicstr string, stack string) {
 	h.Write([]byte(errstr))
 	errhash := hex.EncodeToString(h.Sum(nil))
 
-	jb.info.SetStringArray(errors, "errors", errhash)
+	jm.ErrorExist = true
+	jm.ErrorJson.SetStringArray(errors, "errors", jb.jobName, errhash)
 }
 
 type JobManager struct {
-	AllJobs map[string]*Job
+	AllJobs    map[string]*Job
+	ErrorExist bool
+	ErrorJson  *fj.FastJson
 }
 
 func New() *JobManager {
-	return &JobManager{AllJobs: make(map[string]*Job)}
+	fj.NewFromString("{}")
+	return &JobManager{AllJobs: make(map[string]*Job), ErrorExist: false, ErrorJson: fj.NewFromString("{}")}
+}
+
+func (jm *JobManager) ClearErrors() {
+	jm.ErrorExist = false
+	jm.ErrorJson = fj.NewFromString("{}")
 }
 
 func (jm *JobManager) StartJob_Panic_Redo(
@@ -134,7 +143,7 @@ func (jm *JobManager) StartJobWithContext(
 
 	createTime := time.Now().Unix()
 
-	fjpointre, _ := fj.NewFromString("{}")
+	fjpointre := fj.NewFromString("{}")
 	fjpointre.SetString(jobname, "jobName")
 	fjpointre.SetString(STATUS_WAITING, "status")
 	fjpointre.SetInt(0, "lastRuntime")
@@ -172,7 +181,7 @@ func (jm *JobManager) StartJobWithContext(
 					defer func() {
 						if err := recover(); err != nil {
 							//record panic
-							jm.AllJobs[jobid_].recordPanicStack(err.(error).Error(), string(debug.Stack()))
+							jm.AllJobs[jobid_].recordPanicStack(jm, err.(error).Error(), string(debug.Stack()))
 							//check redo
 							if jm.AllJobs[jobid_].jobTYPE == TYPE_PANIC_REDO {
 								time.Sleep(PANIC_REDO_SECS * time.Second)

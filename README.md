@@ -3,6 +3,7 @@ background job util with go version
 
 ### background job can be rebooted using Panic_Redo type
 
+
 ```go
 //install package:
 go get github.com/daqnext/BGJOB_GO
@@ -36,6 +37,7 @@ import
 	return a / b
 }
 
+
 func main() {
 
 	bgmh := bgjob.New()
@@ -62,7 +64,7 @@ func main() {
 
 	bgmh.StartJobWithContext(bgjob.TYPE_PANIC_RETURN, "myjob1", 2, &mycontext{Counter: 0},
 		func(c interface{}, fjh *fj.FastJson) {
-			fmt.Println("proccessing")
+			fmt.Println("myjob1 start proccessing")
 			c.(*mycontext).Counter++
 			fjh.SetInt(int64(c.(*mycontext).Counter), "Counter")
 
@@ -73,12 +75,20 @@ func main() {
 			}
 			return true
 		}, func(c interface{}, fjh *fj.FastJson) {
-			fmt.Println("afterclose")
+			fmt.Println("myjob1 afterclose ")
 		})
 
+	time.Sleep(65 * time.Second)
 	fmt.Println("///////////////////////")
 	fmt.Println(bgmh.GetAllJobsInfo())
 	fmt.Println("///////////////////////")
+	if bgmh.ErrorExist {
+		fmt.Println("errors:", bgmh.ErrorJson.GetContentAsString())
+	}
+	bgmh.ClearErrors()
+	if bgmh.ErrorExist {
+		fmt.Println("errors:", bgmh.ErrorJson.GetContentAsString())
+	}
 
 	time.Sleep(400 * time.Second)
 }

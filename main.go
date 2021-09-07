@@ -56,6 +56,13 @@ func main() {
 	fmt.Println("///////////////////////")
 	fmt.Println(bgmh.GetAllJobsInfo())
 	fmt.Println("///////////////////////")
+	if bgmh.ErrorExist {
+		fmt.Println("errors:", bgmh.ErrorJson.GetContentAsString())
+	}
+	bgmh.ClearErrors()
+	if bgmh.ErrorExist {
+		fmt.Println("errors:", bgmh.ErrorJson.GetContentAsString())
+	}
 
 	time.Sleep(400 * time.Second)
 }
