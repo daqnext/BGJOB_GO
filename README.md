@@ -3,6 +3,10 @@ background job util with go version
 
 ### background job can be rebooted using Panic_Redo type
 
+### !!important : Don't write your own go routine inside background job
+### if you really want to write go routine inside bg job please use safe go-routine tool below:
+### https://github.com/daqnext/go-smart-routine
+
 
 ```go
 //install package:
