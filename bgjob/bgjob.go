@@ -40,10 +40,9 @@ type Job struct {
 	status      string
 	cycles      int64
 
-	jobTYPE      string
-	panic_Cycles int64
-	panic_redo   chan struct{}
-	panic_done   chan struct{}
+	jobTYPE    string
+	panic_redo chan struct{}
+	panic_done chan struct{}
 
 	context       interface{}
 	processFn     func(interface{}, *fj.FastJson)
@@ -76,24 +75,24 @@ func (jb *Job) recordPanicStack(jm *JobManager, panicstr string, stack string) {
 	h.Write([]byte(errstr))
 	errhash := hex.EncodeToString(h.Sum(nil))
 
-	jm.ErrorExist = true
-	jm.ErrorJson.SetStringArray(errors, "errors", jb.jobName, errhash)
+	jm.PanicExist = true
+	jm.PanicJson.SetStringArray(errors, "errors", jb.jobName, errhash)
 }
 
 type JobManager struct {
 	AllJobs    map[string]*Job
-	ErrorExist bool
-	ErrorJson  *fj.FastJson
+	PanicExist bool
+	PanicJson  *fj.FastJson
 }
 
 func New() *JobManager {
 	fj.NewFromString("{}")
-	return &JobManager{AllJobs: make(map[string]*Job), ErrorExist: false, ErrorJson: fj.NewFromString("{}")}
+	return &JobManager{AllJobs: make(map[string]*Job), PanicExist: false, PanicJson: fj.NewFromString("{}")}
 }
 
 func (jm *JobManager) ClearErrors() {
-	jm.ErrorExist = false
-	jm.ErrorJson = fj.NewFromString("{}")
+	jm.PanicExist = false
+	jm.PanicJson = fj.NewFromString("{}")
 }
 
 func (jm *JobManager) StartJob_Panic_Redo(
@@ -165,7 +164,6 @@ func (jm *JobManager) StartJobWithContext(
 		processFn:     process_fn,
 		chkContinueFn: chk_continue_fn,
 		afCloseFn:     afclose_fn,
-		panic_Cycles:  0,
 		panic_redo:    make(chan struct{}),
 		panic_done:    make(chan struct{}),
 	}
