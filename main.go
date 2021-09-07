@@ -58,7 +58,7 @@ func main() {
 	fmt.Println("///////////////////////")
 	if bgmh.PanicExist {
 		fmt.Println("errors:", bgmh.PanicJson.GetContentAsString())
-		bgmh.ClearErrors()
+		bgmh.ClearPanics()
 	}
 	time.Sleep(400 * time.Second)
 }

@@ -90,7 +90,7 @@ func New() *JobManager {
 	return &JobManager{AllJobs: make(map[string]*Job), PanicExist: false, PanicJson: fj.NewFromString("{}")}
 }
 
-func (jm *JobManager) ClearErrors() {
+func (jm *JobManager) ClearPanics() {
 	jm.PanicExist = false
 	jm.PanicJson = fj.NewFromString("{}")
 }
