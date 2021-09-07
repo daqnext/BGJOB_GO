@@ -1,8 +1,12 @@
 package bgjob
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"math/rand"
+	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,23 +23,60 @@ func randJobId() string {
 	return string(b)
 }
 
+const TYPE_PANIC_REDO = "panic_redo"
+const TYPE_PANIC_RETURN = "panic_return"
+const PANIC_REDO_SECS = 60
+
 const STATUS_RUNNING string = "running"
 const STATUS_WAITING string = "waiting"
 const STATUS_CLOSING string = "closing"
 
 type Job struct {
-	JobName     string
-	Interval    int64
-	CreateTime  int64
-	LastRuntime int64
-	Info        *fj.FastJson
-	Status      string
-	Cycles      int64
+	jobName     string
+	interval    int64
+	createTime  int64
+	lastRuntime int64
+	info        *fj.FastJson
+	status      string
+	cycles      int64
 
-	Context       interface{}
-	ProcessFn     func(interface{}, *fj.FastJson)
-	ChkContinueFn func(interface{}, *fj.FastJson) bool
-	AfCloseFn     func(interface{}, *fj.FastJson)
+	jobTYPE      string
+	panic_Cycles int64
+	panic_redo   chan struct{}
+	panic_done   chan struct{}
+
+	context       interface{}
+	processFn     func(interface{}, *fj.FastJson)
+	chkContinueFn func(interface{}, *fj.FastJson) bool
+	afCloseFn     func(interface{}, *fj.FastJson)
+}
+
+func (jb *Job) recordPanicStack(panicstr string, stack string) {
+
+	errors := []string{panicstr}
+	errstr := panicstr
+
+	errors = append(errors, "last err unix-time:"+strconv.FormatInt(time.Now().Unix(), 10))
+
+	lines := strings.Split(stack, "\n")
+	maxlines := len(lines)
+	if maxlines >= 100 {
+		maxlines = 100
+	}
+
+	if maxlines >= 3 {
+		for i := 2; i < maxlines; i = i + 2 {
+			fomatstr := strings.ReplaceAll(lines[i], "	", "")
+			errstr = errstr + "#" + fomatstr
+			errors = append(errors, fomatstr)
+		}
+	}
+
+	h := md5.New()
+	h.Write([]byte(errstr))
+	errhash := hex.EncodeToString(h.Sum(nil))
+
+	jb.info.SetStringArray(errors, "errors", errhash)
 }
 
 type JobManager struct {
@@ -46,22 +87,36 @@ func New() *JobManager {
 	return &JobManager{AllJobs: make(map[string]*Job)}
 }
 
-func (jm *JobManager) StartJob(
+func (jm *JobManager) StartJob_Panic_Redo(
 	jobname string,
 	interval int64,
 	process_fn func(*fj.FastJson)) (string, error) {
-	return jm.StartJobWithContext(jobname, interval, nil, func(i interface{}, fjh *fj.FastJson) {
+	return jm.StartJobWithContext(TYPE_PANIC_REDO, jobname, interval, nil, func(i interface{}, fjh *fj.FastJson) {
+		process_fn(fjh)
+	}, nil, nil)
+}
+
+func (jm *JobManager) StartJob_Panic_Return(
+	jobname string,
+	interval int64,
+	process_fn func(*fj.FastJson)) (string, error) {
+	return jm.StartJobWithContext(TYPE_PANIC_RETURN, jobname, interval, nil, func(i interface{}, fjh *fj.FastJson) {
 		process_fn(fjh)
 	}, nil, nil)
 }
 
 func (jm *JobManager) StartJobWithContext(
+	jobtype string,
 	jobname string,
 	interval int64,
 	context interface{},
 	process_fn func(interface{}, *fj.FastJson),
 	chk_continue_fn func(interface{}, *fj.FastJson) bool,
 	afclose_fn func(interface{}, *fj.FastJson)) (string, error) {
+
+	if jobtype != TYPE_PANIC_REDO && jobtype != TYPE_PANIC_RETURN {
+		return "", errors.New("job type error")
+	}
 
 	if interval < 1 {
 		return "", errors.New("interval at least 1 second")
@@ -80,68 +135,103 @@ func (jm *JobManager) StartJobWithContext(
 	createTime := time.Now().Unix()
 
 	fjpointre, _ := fj.NewFromString("{}")
-	fjpointre.SetString(jobname, "JobName")
-	fjpointre.SetString(STATUS_WAITING, "Status")
-	fjpointre.SetInt(0, "LastRuntime")
-	fjpointre.SetInt(createTime, "CreateTime")
-	fjpointre.SetInt(0, "Cycles")
-	fjpointre.SetInt(interval, "Interval")
+	fjpointre.SetString(jobname, "jobName")
+	fjpointre.SetString(STATUS_WAITING, "status")
+	fjpointre.SetInt(0, "lastRuntime")
+	fjpointre.SetInt(createTime, "createTime")
+	fjpointre.SetInt(0, "cycles")
+	fjpointre.SetInt(interval, "interval")
+	fjpointre.SetString(jobtype, "jobTYPE")
 
 	jm.AllJobs[jobid] = &Job{
-		JobName:       jobname,
-		LastRuntime:   0,
-		CreateTime:    createTime,
-		Status:        STATUS_WAITING,
-		Cycles:        0,
-		Interval:      interval,
-		Info:          fjpointre,
-		Context:       context,
-		ProcessFn:     process_fn,
-		ChkContinueFn: chk_continue_fn,
-		AfCloseFn:     afclose_fn,
+		jobTYPE:       jobtype,
+		jobName:       jobname,
+		lastRuntime:   0,
+		createTime:    createTime,
+		status:        STATUS_WAITING,
+		cycles:        0,
+		interval:      interval,
+		info:          fjpointre,
+		context:       context,
+		processFn:     process_fn,
+		chkContinueFn: chk_continue_fn,
+		afCloseFn:     afclose_fn,
+		panic_Cycles:  0,
+		panic_redo:    make(chan struct{}),
+		panic_done:    make(chan struct{}),
 	}
 
+	///start the monitoring routing
 	go func(jobid_ string) {
-
-		jobh := jm.AllJobs[jobid_]
+		//jobh := jm.AllJobs[jobid_]
 		for {
+			select {
+			case <-jm.AllJobs[jobid_].panic_redo:
+				go func(jobid_ string) {
 
-			if ((jobh.ChkContinueFn != nil) && (!jobh.ChkContinueFn(jobh.Context, jobh.Info))) ||
-				(jobh.Status == STATUS_CLOSING) {
-
-				jobh.Status = STATUS_CLOSING
-				jobh.Info.SetString(STATUS_CLOSING, "Status")
-
-				if jobh.AfCloseFn != nil {
-					jobh.AfCloseFn(jobh.Context, jobh.Info)
-				}
+					defer func() {
+						if err := recover(); err != nil {
+							//record panic
+							jm.AllJobs[jobid_].recordPanicStack(err.(error).Error(), string(debug.Stack()))
+							//check redo
+							if jm.AllJobs[jobid_].jobTYPE == TYPE_PANIC_REDO {
+								time.Sleep(PANIC_REDO_SECS * time.Second)
+								jm.AllJobs[jobid_].panic_redo <- struct{}{}
+							} else {
+								jm.AllJobs[jobid_].panic_done <- struct{}{}
+							}
+						}
+					}()
+					jm.dojob(jobid_)
+				}(jobid_)
+			case <-jm.AllJobs[jobid_].panic_done:
 				delete(jm.AllJobs, jobid_)
 				return
 			}
-
-			nowUnixTime := time.Now().Unix()
-			toSleepSecs := jobh.LastRuntime + jobh.Interval - nowUnixTime
-			if toSleepSecs <= 0 {
-				jobh.LastRuntime = nowUnixTime
-				jobh.Info.SetInt(jobh.LastRuntime, "LastRuntime")
-				jobh.Status = STATUS_RUNNING
-				jobh.Info.SetString(STATUS_RUNNING, "Status")
-				jobh.Cycles++
-				jobh.Info.SetInt(jobh.Cycles, "Cycles")
-				// run
-				jobh.ProcessFn(jobh.Context, jobh.Info)
-				//end
-				jobh.Status = STATUS_WAITING
-				jobh.Info.SetString(STATUS_WAITING, "Status")
-
-			} else {
-				time.Sleep(time.Duration(toSleepSecs) * time.Second)
-			}
 		}
-
 	}(jobid)
 
+	jm.AllJobs[jobid].panic_redo <- struct{}{}
+
 	return jobid, nil
+}
+
+func (jm *JobManager) dojob(jobid_ string) {
+	jobh := jm.AllJobs[jobid_]
+	for {
+
+		if ((jobh.chkContinueFn != nil) && (!jobh.chkContinueFn(jobh.context, jobh.info))) ||
+			(jobh.status == STATUS_CLOSING) {
+
+			jobh.status = STATUS_CLOSING
+			jobh.info.SetString(STATUS_CLOSING, "Status")
+
+			if jobh.afCloseFn != nil {
+				jobh.afCloseFn(jobh.context, jobh.info)
+			}
+			jobh.panic_done <- struct{}{}
+			return
+		}
+
+		nowUnixTime := time.Now().Unix()
+		toSleepSecs := jobh.lastRuntime + jobh.interval - nowUnixTime
+		if toSleepSecs <= 0 {
+			jobh.lastRuntime = nowUnixTime
+			jobh.info.SetInt(jobh.lastRuntime, "LastRuntime")
+			jobh.status = STATUS_RUNNING
+			jobh.info.SetString(STATUS_RUNNING, "Status")
+			jobh.cycles++
+			jobh.info.SetInt(jobh.cycles, "Cycles")
+			// run
+			jobh.processFn(jobh.context, jobh.info)
+			//end
+			jobh.status = STATUS_WAITING
+			jobh.info.SetString(STATUS_WAITING, "Status")
+
+		} else {
+			time.Sleep(time.Duration(toSleepSecs) * time.Second)
+		}
+	}
 }
 
 //return nil if not exist
@@ -155,19 +245,19 @@ func (jm *JobManager) GetGBJob(jobid string) *Job {
 }
 
 func (jm *JobManager) CloseAndDeleteJob(jobid string) {
-	jm.AllJobs[jobid].Status = STATUS_CLOSING
+	jm.AllJobs[jobid].status = STATUS_CLOSING
 }
 
 func (jm *JobManager) CloseAndDeleteAllJobs() {
 	for jobid := range jm.AllJobs {
-		jm.AllJobs[jobid].Status = STATUS_CLOSING
+		jm.AllJobs[jobid].status = STATUS_CLOSING
 	}
 }
 
 func (jm *JobManager) GetAllJobsInfo() string {
 	result := "["
 	for jobid := range jm.AllJobs {
-		result = result + jm.AllJobs[jobid].Info.GetContentAsString()
+		result = result + jm.AllJobs[jobid].info.GetContentAsString()
 		result = result + ","
 	}
 	result = strings.Trim(result, ",") + "]"

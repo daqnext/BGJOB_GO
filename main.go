@@ -8,6 +8,10 @@ import (
 	fj "github.com/daqnext/fastjson"
 )
 
+func divide(a, b int) int {
+	return a / b
+}
+
 func main() {
 
 	bgmh := bgjob.New()
@@ -16,9 +20,25 @@ func main() {
 		Counter int
 	}
 
-	bgmh.StartJobWithContext("myjob1", 2, &mycontext{Counter: 0},
+	/////example of panic recovery background job
+	x := 0
+	bgmh.StartJob_Panic_Redo("myjob2", 2, func(fjh *fj.FastJson) {
+		fjh.SetBoolean(true, "job2started")
+		fmt.Println("proccessing myjob2")
+
+		fmt.Println("start of the program")
+		if x == 0 {
+			x++
+			fmt.Println("here0")
+			divide(10, 0)
+		}
+		fmt.Println("end of the program")
+
+	})
+
+	bgmh.StartJobWithContext(bgjob.TYPE_PANIC_RETURN, "myjob1", 2, &mycontext{Counter: 0},
 		func(c interface{}, fjh *fj.FastJson) {
-			fmt.Println("proccessing")
+			fmt.Println("myjob1 start proccessing")
 			c.(*mycontext).Counter++
 			fjh.SetInt(int64(c.(*mycontext).Counter), "Counter")
 
@@ -29,14 +49,10 @@ func main() {
 			}
 			return true
 		}, func(c interface{}, fjh *fj.FastJson) {
-			fmt.Println("afterclose")
+			fmt.Println("myjob1 afterclose ")
 		})
 
-	bgmh.StartJob("myjob2", 2, func(fjh *fj.FastJson) {
-		fjh.SetBoolean(true, "job2started")
-		fmt.Println("proccessing myjob2")
-	})
-
+	time.Sleep(65 * time.Second)
 	fmt.Println("///////////////////////")
 	fmt.Println(bgmh.GetAllJobsInfo())
 	fmt.Println("///////////////////////")
