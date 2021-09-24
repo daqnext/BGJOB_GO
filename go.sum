@@ -1,4 +1,4 @@
-github.com/daqnext/fastjson v0.2.0 h1:pgAO868Vx3bdr9Lvg4EB1V9RxSdMzPy6z2Px5AtzA0I=
-github.com/daqnext/fastjson v0.2.0/go.mod h1:/l0vJWbS20xVMFJbyMUW6/x5FRpz79gGPm6oolCVFCI=
+github.com/daqnext/fastjson v1.0.0 h1:uiJsz666J0rf2WTVOkPXUaYqXclSkGNCtcxxn/E/Dqs=
+github.com/daqnext/fastjson v1.0.0/go.mod h1:/l0vJWbS20xVMFJbyMUW6/x5FRpz79gGPm6oolCVFCI=
 github.com/daqnext/jsonparser v1.1.2 h1:wvFbVlDrc/CHST0pBUkMBi+g/jdHAlDWTGS1OnQOQu8=
 github.com/daqnext/jsonparser v1.1.2/go.mod h1:B0HLHwPJV3n69nZ2Ei8Np/BVHEotzvvEWpCc/FQ7p80=

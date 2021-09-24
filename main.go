@@ -40,7 +40,7 @@ func main() {
 		func(c interface{}, fjh *fj.FastJson) {
 			fmt.Println("myjob1 start proccessing")
 			c.(*mycontext).Counter++
-			fjh.SetInt(int64(c.(*mycontext).Counter), "Counter")
+			fjh.SetInt64(int64(c.(*mycontext).Counter), "Counter")
 
 		}, func(c interface{}, fjh *fj.FastJson) bool {
 			fmt.Println(fjh.GetContentAsString())

@@ -146,9 +146,9 @@ func (jm *JobManager) StartJobWithContext(
 	fjpointre.SetString(jobname, "jobName")
 	fjpointre.SetString(STATUS_WAITING, "status")
 	fjpointre.SetInt(0, "lastRuntime")
-	fjpointre.SetInt(createTime, "createTime")
+	fjpointre.SetInt64(createTime, "createTime")
 	fjpointre.SetInt(0, "cycles")
-	fjpointre.SetInt(interval, "interval")
+	fjpointre.SetInt64(interval, "interval")
 	fjpointre.SetString(jobtype, "jobTYPE")
 
 	jm.AllJobs[jobid] = &Job{
@@ -224,11 +224,11 @@ func (jm *JobManager) dojob(jobid_ string) {
 		toSleepSecs := jobh.lastRuntime + jobh.interval - nowUnixTime
 		if toSleepSecs <= 0 {
 			jobh.lastRuntime = nowUnixTime
-			jobh.info.SetInt(jobh.lastRuntime, "LastRuntime")
+			jobh.info.SetInt64(jobh.lastRuntime, "LastRuntime")
 			jobh.status = STATUS_RUNNING
 			jobh.info.SetString(STATUS_RUNNING, "Status")
 			jobh.cycles++
-			jobh.info.SetInt(jobh.cycles, "Cycles")
+			jobh.info.SetInt64(jobh.cycles, "Cycles")
 			// run
 			jobh.processFn(jobh.context, jobh.info)
 			//end
