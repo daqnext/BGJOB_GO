@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/rand"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -179,7 +180,19 @@ func (jm *JobManager) StartJobWithContext(
 					defer func() {
 						if err := recover(); err != nil {
 							//record panic
-							jm.AllJobs[jobid_].recordPanicStack(jm, err.(error).Error(), string(debug.Stack()))
+							var ErrStr string
+							switch e := err.(type) {
+							case string:
+								ErrStr = e
+							case runtime.Error:
+								ErrStr = e.Error()
+							case error:
+								ErrStr = e.Error()
+							default:
+								ErrStr = "recovered (default) panic"
+							}
+
+							jm.AllJobs[jobid_].recordPanicStack(jm, ErrStr, string(debug.Stack()))
 							//check redo
 							if jm.AllJobs[jobid_].jobTYPE == TYPE_PANIC_REDO {
 								time.Sleep(PANIC_REDO_SECS * time.Second)
