@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	fj "github.com/daqnext/fastjson"
@@ -81,14 +82,15 @@ func (jb *Job) recordPanicStack(jm *JobManager, panicstr string, stack string) {
 }
 
 type JobManager struct {
-	AllJobs    map[string]*Job
+	AllJobs    sync.Map
 	PanicExist bool
 	PanicJson  *fj.FastJson
 }
 
 func New() *JobManager {
 	fj.NewFromString("{}")
-	return &JobManager{AllJobs: make(map[string]*Job), PanicExist: false, PanicJson: fj.NewFromString("{}")}
+	return &JobManager{
+		PanicExist: false, PanicJson: fj.NewFromString("{}")}
 }
 
 func (jm *JobManager) ClearPanics() {
@@ -135,7 +137,7 @@ func (jm *JobManager) StartJobWithContext(
 	jobid := ""
 	for {
 		jobid = randJobId()
-		_, ok := jm.AllJobs[jobid]
+		_, ok := jm.AllJobs.Load(jobid)
 		if !ok {
 			break
 		}
@@ -152,7 +154,7 @@ func (jm *JobManager) StartJobWithContext(
 	fjpointre.SetInt64(interval, "interval")
 	fjpointre.SetString(jobtype, "jobTYPE")
 
-	jm.AllJobs[jobid] = &Job{
+	todoJobPointer := &Job{
 		jobTYPE:       jobtype,
 		jobName:       jobname,
 		lastRuntime:   0,
@@ -169,12 +171,19 @@ func (jm *JobManager) StartJobWithContext(
 		panic_done:    make(chan struct{}),
 	}
 
+	jm.AllJobs.Store(jobid, todoJobPointer)
+
 	///start the monitoring routing
 	go func(jobid_ string) {
-		//jobh := jm.AllJobs[jobid_]
+
+		job, ok := jm.AllJobs.Load(jobid_)
+		if !ok {
+			return
+		}
 		for {
+
 			select {
-			case <-jm.AllJobs[jobid_].panic_redo:
+			case <-job.(*Job).panic_redo:
 				go func(jobid_ string) {
 
 					defer func() {
@@ -192,32 +201,37 @@ func (jm *JobManager) StartJobWithContext(
 								ErrStr = "recovered (default) panic"
 							}
 
-							jm.AllJobs[jobid_].recordPanicStack(jm, ErrStr, string(debug.Stack()))
+							job.(*Job).recordPanicStack(jm, ErrStr, string(debug.Stack()))
 							//check redo
-							if jm.AllJobs[jobid_].jobTYPE == TYPE_PANIC_REDO {
+							if job.(*Job).jobTYPE == TYPE_PANIC_REDO {
 								time.Sleep(PANIC_REDO_SECS * time.Second)
-								jm.AllJobs[jobid_].panic_redo <- struct{}{}
+								job.(*Job).panic_redo <- struct{}{}
 							} else {
-								jm.AllJobs[jobid_].panic_done <- struct{}{}
+								job.(*Job).panic_done <- struct{}{}
 							}
 						}
 					}()
 					jm.dojob(jobid_)
 				}(jobid_)
-			case <-jm.AllJobs[jobid_].panic_done:
-				delete(jm.AllJobs, jobid_)
+			case <-job.(*Job).panic_done:
+				jm.AllJobs.Delete(jobid_)
 				return
 			}
 		}
 	}(jobid)
 
-	jm.AllJobs[jobid].panic_redo <- struct{}{}
-
+	todoJobPointer.panic_redo <- struct{}{}
 	return jobid, nil
 }
 
 func (jm *JobManager) dojob(jobid_ string) {
-	jobh := jm.AllJobs[jobid_]
+	jobh_, ok := jm.AllJobs.Load(jobid_)
+	if !ok {
+		return
+	}
+
+	jobh := jobh_.(*Job)
+
 	for {
 
 		if ((jobh.chkContinueFn != nil) && (!jobh.chkContinueFn(jobh.context, jobh.info))) ||
@@ -256,30 +270,35 @@ func (jm *JobManager) dojob(jobid_ string) {
 
 //return nil if not exist
 func (jm *JobManager) GetGBJob(jobid string) *Job {
-	value, ok := jm.AllJobs[jobid]
+	jobh_, ok := jm.AllJobs.Load(jobid)
 	if ok {
-		return value
+		return jobh_.(*Job)
 	} else {
 		return nil
 	}
 }
 
 func (jm *JobManager) CloseAndDeleteJob(jobid string) {
-	jm.AllJobs[jobid].status = STATUS_CLOSING
+	jobh_, ok := jm.AllJobs.Load(jobid)
+	if ok {
+		jobh_.(*Job).status = STATUS_CLOSING
+	}
 }
 
 func (jm *JobManager) CloseAndDeleteAllJobs() {
-	for jobid := range jm.AllJobs {
-		jm.AllJobs[jobid].status = STATUS_CLOSING
-	}
+	jm.AllJobs.Range(func(_, value interface{}) bool {
+		value.(*Job).status = STATUS_CLOSING
+		return true
+	})
 }
 
 func (jm *JobManager) GetAllJobsInfo() string {
 	result := "["
-	for jobid := range jm.AllJobs {
-		result = result + jm.AllJobs[jobid].info.GetContentAsString()
+	jm.AllJobs.Range(func(_, value interface{}) bool {
+		result = result + value.(*Job).info.GetContentAsString()
 		result = result + ","
-	}
+		return true
+	})
 	result = strings.Trim(result, ",") + "]"
 	return result
 }
