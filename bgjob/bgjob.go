@@ -15,6 +15,10 @@ import (
 	fj "github.com/daqnext/fastjson"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
 
 func randJobId() string {
