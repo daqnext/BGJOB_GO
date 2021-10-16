@@ -34,17 +34,34 @@ import
 ```
 
 ```go
-	// example:
-	/// use case 1  job with context ////////////
-	 
-	 func divide(a, b int) int {
+// example:
+/// use case 1  job with context ////////////
+ 
+
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/daqnext/BGJOB_GO/bgjob"
+	fj "github.com/daqnext/fastjson"
+
+	localLog "github.com/daqnext/LocalLog/log"
+)
+
+func divide(a, b int) int {
 	return a / b
 }
 
-
 func main() {
 
-	bgmh := bgjob.New()
+	lg, err := localLog.New("logs", 10, 10, 10)
+	if err != nil {
+		panic(err)
+	}
+
+	bgmh := bgjob.New(lg)
 
 	type mycontext struct {
 		Counter int
