@@ -86,7 +86,9 @@ func (jb *Job) recordPanicStack(jm *JobManager, panicstr string, stack string) {
 	jm.PanicExist = true
 	jm.PanicJson.SetStringArray(errors, "errors", jb.jobName, errhash)
 
-	jm.llog.Logger.Error("bgjob-catch-panic: ", " jobname:", jb.jobName, " errhash:", errhash, " errors:", errors)
+	if jm.llog != nil {
+		jm.llog.Logger.Error("bgjob-catch-panic: ", " jobname:", jb.jobName, " errhash:", errhash, " errors:", errors)
+	}
 
 }
 
