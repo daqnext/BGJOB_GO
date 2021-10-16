@@ -6,6 +6,8 @@ import (
 
 	"github.com/daqnext/BGJOB_GO/bgjob"
 	fj "github.com/daqnext/fastjson"
+
+	localLog "github.com/daqnext/LocalLog/log"
 )
 
 func divide(a, b int) int {
@@ -14,7 +16,12 @@ func divide(a, b int) int {
 
 func main() {
 
-	bgmh := bgjob.New()
+	lg, err := localLog.New("logs", 10, 10, 10)
+	if err != nil {
+		panic(err)
+	}
+
+	bgmh := bgjob.New(lg)
 
 	type mycontext struct {
 		Counter int

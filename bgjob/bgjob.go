@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	localLog "github.com/daqnext/LocalLog/log"
+
 	fj "github.com/daqnext/fastjson"
 )
 
@@ -83,18 +85,25 @@ func (jb *Job) recordPanicStack(jm *JobManager, panicstr string, stack string) {
 
 	jm.PanicExist = true
 	jm.PanicJson.SetStringArray(errors, "errors", jb.jobName, errhash)
+
+	jm.llog.Logger.Error("bgjob-catch-panic: ", " jobname:", jb.jobName, " errhash:", errhash, " errors:", errors)
+
 }
 
 type JobManager struct {
 	AllJobs    sync.Map
 	PanicExist bool
 	PanicJson  *fj.FastJson
+	llog       *localLog.LocalLog
 }
 
-func New() *JobManager {
+func New(localLogger *localLog.LocalLog) *JobManager {
 	fj.NewFromString("{}")
 	return &JobManager{
-		PanicExist: false, PanicJson: fj.NewFromString("{}")}
+		PanicExist: false,
+		PanicJson:  fj.NewFromString("{}"),
+		llog:       localLogger,
+	}
 }
 
 func (jm *JobManager) ClearPanics() {
